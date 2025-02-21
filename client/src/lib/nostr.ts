@@ -3,32 +3,34 @@ import type { NostrEvent, NostrFilter } from '@shared/nostr';
 import { NOSTR_KINDS } from '@shared/nostr';
 import type { Ad, AffiliateLink } from '@shared/schema';
 
-const pool = new SimplePool();
 const DEFAULT_RELAYS = [
   'wss://relay.damus.io',
   'wss://nos.lol',
   'wss://relay.nostr.band'
 ];
 
+// Initialize pool with explicit relays
+const pool = new SimplePool();
+
 export async function publishEvent(event: NostrEvent): Promise<string> {
   try {
-    await Promise.any(pool.publish(DEFAULT_RELAYS, event));
+    const pub = await pool.publish(DEFAULT_RELAYS, event);
     return event.id;
   } catch (error) {
     throw new Error('Failed to publish event');
   }
 }
 
-export async function subscribeToEvents(
+export function subscribeToEvents(
   filter: NostrFilter,
   onEvent: (event: NostrEvent) => void
-): Promise<() => void> {
-  const subscription = pool.subscribe(DEFAULT_RELAYS, [filter], {
-    onevent: onEvent,
+): () => void {
+  const sub = pool.sub(DEFAULT_RELAYS, [filter], {
+    onevent: onEvent
   });
 
   return () => {
-    subscription.close();
+    if (sub) sub.unsub();
   };
 }
 

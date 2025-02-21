@@ -24,7 +24,7 @@ export async function publishEvent(event: NostrEvent): Promise<string> {
     return event.id;
   } catch (error) {
     console.error('Failed to publish event:', error);
-    throw new Error('Failed to publish event');
+    throw new Error(`Failed to publish event: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 

@@ -4,14 +4,16 @@ import { NOSTR_KINDS } from '@shared/nostr';
 import type { Ad, AffiliateLink } from '@shared/schema';
 
 const DEFAULT_RELAYS = [
+  'wss://relay.damus.io',  // Primary relay for marketplace events
   'wss://relay.snort.social',
-  'wss://relay.current.fyi',
-  'wss://nostr.fmt.wiz.biz',
-  'wss://relay.damus.io'
+  'wss://relay.current.fyi'
 ];
 
-// Initialize pool with explicit relays
-const pool = new SimplePool();
+// Initialize pool with explicit relays and connection options
+const pool = new SimplePool({
+  eoseSubTimeout: 10000, // Increase timeout for EOSE
+  getTimeout: 10000      // Increase timeout for GET requests
+});
 
 // Log relay connection attempts
 console.log('Initializing Nostr pool with relays:', DEFAULT_RELAYS);
@@ -34,13 +36,23 @@ export function subscribeToEvents(
 ): () => void {
   console.log('Subscribing to events with filter:', filter);
 
-  const sub = pool.sub(DEFAULT_RELAYS, [filter], {
+  // Ensure we're explicitly filtering for marketplace events
+  const finalFilter = {
+    ...filter,
+    kinds: [...(filter.kinds || []), NOSTR_KINDS.CLASSIFIED_AD]
+  };
+
+  const sub = pool.sub(DEFAULT_RELAYS, [finalFilter], {
     onevent: (event: NostrEvent) => {
       console.log('Received event:', event);
-      onEvent(event);
+      try {
+        onEvent(event);
+      } catch (error) {
+        console.error('Error processing event:', error);
+      }
     },
     oneose: () => {
-      console.log('EOSE received for subscription');
+      console.log('EOSE received for subscription with filter:', finalFilter);
     },
     onerror: (err: Error) => {
       console.error('Subscription error:', err);
@@ -55,13 +67,18 @@ export function subscribeToEvents(
 
 export function parseAdEvent(event: NostrEvent): Ad {
   console.log('Parsing ad event:', event);
-  const content = JSON.parse(event.content);
-  return {
-    id: event.id,
-    pubkey: event.pubkey,
-    ...content,
-    relayUrl: DEFAULT_RELAYS[0]
-  };
+  try {
+    const content = JSON.parse(event.content);
+    return {
+      id: event.id,
+      pubkey: event.pubkey,
+      ...content,
+      relayUrl: DEFAULT_RELAYS[0]
+    };
+  } catch (error) {
+    console.error('Failed to parse ad event:', error);
+    throw new Error(`Failed to parse ad event: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
 }
 
 export function parseAffiliateEvent(event: NostrEvent): AffiliateLink {

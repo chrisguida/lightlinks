@@ -33,32 +33,23 @@ export function subscribeToEvents(
 ): () => void {
   console.log('Subscribing to events with filter:', filter);
 
-  // Ensure we're explicitly filtering for marketplace events
-  const finalFilter = {
-    ...filter,
-    kinds: [...(filter.kinds || []), NOSTR_KINDS.CLASSIFIED_AD]
-  };
-
-  console.log('Using final filter:', finalFilter);
-
-  const sub = pool.sub(DEFAULT_RELAYS, [finalFilter]);
-
-  sub.on('event', (event: NostrEvent) => {
-    console.log('Received event:', event);
-    try {
-      onEvent(event);
-    } catch (error) {
-      console.error('Error processing event:', error);
+  // Create a subscription
+  const subscription = pool.subscribe(DEFAULT_RELAYS, [filter], {
+    onevent: (event: NostrEvent) => {
+      console.log('Received event:', event);
+      try {
+        onEvent(event);
+      } catch (error) {
+        console.error('Error processing event:', error);
+      }
     }
   });
 
-  sub.on('eose', () => {
-    console.log('EOSE received for subscription with filter:', finalFilter);
-  });
+  console.log('Subscription created successfully');
 
   return () => {
     console.log('Unsubscribing from events');
-    if (sub) sub.unsub();
+    subscription.close();
   };
 }
 

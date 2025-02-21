@@ -1,12 +1,12 @@
-import { SimplePool, getPublicKey, nip19 } from 'nostr-tools';
+import { SimplePool, getPublicKey, nip19, type Filter } from 'nostr-tools';
 import type { NostrEvent, NostrFilter } from '@shared/nostr';
 import { NOSTR_KINDS } from '@shared/nostr';
 import type { Ad, AffiliateLink } from '@shared/schema';
 
 const DEFAULT_RELAYS = [
   'wss://relay.damus.io',  // Primary relay for marketplace events
-  'wss://relay.snort.social',
-  'wss://relay.current.fyi'
+  // 'wss://relay.snort.social',
+  // 'wss://relay.current.fyi'
 ];
 
 // Initialize pool without options as per nostr-tools API
@@ -26,41 +26,60 @@ export async function publishEvent(event: NostrEvent): Promise<string> {
     throw new Error(`Failed to publish event: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
+export async function subscribeToEvents(
+  filter: Filter,
+  onEvent: (event: Event) => void
+): Promise<() => void> {
+  try {
+    console.log('Subscribing to events with filter:', filter);
 
-export function subscribeToEvents(
-  filter: NostrFilter,
-  onEvent: (event: NostrEvent) => void
-): () => void {
-  console.log('Subscribing to events with filter:', filter);
+    // Fetch past events using querySync()
+    const events = await pool.querySync(DEFAULT_RELAYS, filter);
+    events.forEach((event) => {
+      console.log("Received past event:", event);
+      onEvent(event);
+    });
 
-  // Create a subscription
-  const subscription = pool.subscribe(DEFAULT_RELAYS, [filter], {
-    onevent: (event: NostrEvent) => {
-      console.log('Received event:', event);
-      try {
+    // Subscribe to live events using subscribeMany()
+    const sub = pool.subscribeMany(DEFAULT_RELAYS, [filter], {
+      onevent: (event) => {
+        console.log("Live event received:", event);
         onEvent(event);
-      } catch (error) {
-        console.error('Error processing event:', error);
+      },
+      onclose: (reasons) => {
+        console.log("Subscription closed:", reasons);
       }
-    }
-  });
+    });
 
-  console.log('Subscription created successfully');
+    // Return cleanup function
+    return () => {
+      console.log("Unsubscribing from live events");
+      sub.close();
+    };
 
-  return () => {
-    console.log('Unsubscribing from events');
-    subscription.close();
-  };
+  } catch (error) {
+    console.error("Error subscribing to events:", error);
+    return () => {};
+  }
 }
+
 
 export function parseAdEvent(event: NostrEvent): Ad {
   console.log('Parsing ad event:', event);
   try {
-    const content = JSON.parse(event.content);
+    const title = event.tags.find(t => t[0] === 'title')?.[1] || 'Untitled';
+    const price = event.tags.find(t => t[0] === 'price')?.[1] || 'Unknown';
+    const image = event.tags.find(t => t[0] === 'image')?.[1] || null;
+    const location = event.tags.find(t => t[0] === 'location')?.[1] || 'Unknown';
+
     return {
       id: event.id,
       pubkey: event.pubkey,
-      ...content,
+      title,
+      description: event.content || '',
+      price,
+      location,
+      image,
       relayUrl: DEFAULT_RELAYS[0]
     };
   } catch (error) {

@@ -1,35 +1,83 @@
-import { useQuery } from '@tanstack/react-query';
-import AdCard from '@/components/ad-card';
-import { mockAds, mockAffiliateLinks } from '@/lib/mock-data';
-import type { Ad, AffiliateLink } from '@shared/schema';
+import { Switch, Route, useRoute } from "wouter";
+import { queryClient } from "@/lib/queryClient";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { Toaster } from "@/components/ui/toaster";
+import Home from "@/pages/home";
+import AdPage from "@/pages/ad";
+import NotFound from "@/pages/not-found";
+import { useEffect, useState } from "react";
+import { Relay } from "nostr-tools";
 
-export default function Home() {
-  // Use mock data with react-query for consistent API
-  const { data: ads = [] } = useQuery<Ad[]>({
-    queryKey: ['ads'],
-    queryFn: async () => mockAds,
-  });
+declare global {
+  interface Window {
+    relay: any;
+  }
+}
 
-  const { data: affiliateLinks = [] } = useQuery<AffiliateLink[]>({
-    queryKey: ['affiliate-links'],
-    queryFn: async () => mockAffiliateLinks,
-  });
+
+function Router() {
+  return (
+    <Switch>
+      <Route path="/" component={Home}/>
+      <Route path="/ad/:id" component={AdPage}/>
+      <Route path="/affiliate/:npub" component={AffiliatePage} />
+      <Route component={NotFound} />
+    </Switch>
+  );
+}
+
+function AffiliatePage() {
+  const [match, params] = useRoute("/affiliate/:npub");
+  const npub = match ? params.npub : null;
+  const [events, setEvents] = useState<any[]>([]);
+
+  console.log("Router query (npub):", npub);
+
+  useEffect(() => {
+    console.log("useEffect triggered with npub:", npub);
+    if (!npub) return;
+
+    const fetchAffiliateLinks = async () => {
+      try {
+        console.log("Connecting to relay...");
+        const relay = await Relay.connect("wss://relay.damus.io");
+        window.relay = relay;
+        console.log("Connected to relay:", relay.url);
+
+        relay.subscribe(
+          // [{ kinds: [13166], authors: [npub] }],
+          [{ kinds: [13166] }],
+          {
+            onevent(event) {
+              console.log("Received event:", event);
+              setEvents((prev) => [...prev, event]);
+            },
+          }
+        );
+      } catch (error) {
+        console.error("Error connecting to relay:", error);
+      }
+    };
+
+    fetchAffiliateLinks();
+  }, [npub]);
 
   return (
-    <div className="container mx-auto py-8">
-      <h1 className="text-4xl font-bold mb-8 bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-        Nostr Marketplace
-      </h1>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {ads.map((ad) => (
-          <AdCard 
-            key={ad.id} 
-            ad={ad}
-            affiliateLink={affiliateLinks.find(l => l.adEventId === ad.id)}
-          />
-        ))}
-      </div>
+    <div>
+      <h1>Affiliate Links</h1>
+      <h2>Classifieds</h2>
+      <pre>{JSON.stringify(events, null, 2)}</pre>
     </div>
   );
 }
+
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <Router />
+      <Toaster />
+    </QueryClientProvider>
+  );
+}
+
+export default App;

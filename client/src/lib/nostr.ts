@@ -42,21 +42,21 @@ export function subscribeToEvents(
     kinds: [...(filter.kinds || []), NOSTR_KINDS.CLASSIFIED_AD]
   };
 
-  const sub = pool.sub(DEFAULT_RELAYS, [finalFilter], {
-    onevent: (event: NostrEvent) => {
-      console.log('Received event:', event);
-      try {
-        onEvent(event);
-      } catch (error) {
-        console.error('Error processing event:', error);
-      }
-    },
-    oneose: () => {
-      console.log('EOSE received for subscription with filter:', finalFilter);
-    },
-    onerror: (err: Error) => {
-      console.error('Subscription error:', err);
+  console.log('Using final filter:', finalFilter);
+
+  const sub = pool.sub(DEFAULT_RELAYS, [finalFilter]);
+
+  sub.on('event', (event: NostrEvent) => {
+    console.log('Received event:', event);
+    try {
+      onEvent(event);
+    } catch (error) {
+      console.error('Error processing event:', error);
     }
+  });
+
+  sub.on('eose', () => {
+    console.log('EOSE received for subscription with filter:', finalFilter);
   });
 
   return () => {

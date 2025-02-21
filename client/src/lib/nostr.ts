@@ -9,11 +9,8 @@ const DEFAULT_RELAYS = [
   'wss://relay.current.fyi'
 ];
 
-// Initialize pool with explicit relays and connection options
-const pool = new SimplePool({
-  eoseSubTimeout: 10000, // Increase timeout for EOSE
-  getTimeout: 10000      // Increase timeout for GET requests
-});
+// Initialize pool without options as per nostr-tools API
+const pool = new SimplePool();
 
 // Log relay connection attempts
 console.log('Initializing Nostr pool with relays:', DEFAULT_RELAYS);

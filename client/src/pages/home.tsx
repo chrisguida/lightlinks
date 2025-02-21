@@ -17,12 +17,15 @@ export default function Home() {
           { kinds: [NOSTR_KINDS.CLASSIFIED_AD] },
           (event) => {
             try {
+              console.log('Processing ad event in home page:', event);
               ads.push(parseAdEvent(event));
             } catch (e) {
               console.error('Failed to parse ad event:', e);
             }
           }
         );
+
+        // Wait longer for events to arrive
         setTimeout(resolve, 5000);
       });
 
@@ -42,6 +45,7 @@ export default function Home() {
           { kinds: [NOSTR_KINDS.AFFILIATE_LIST] },
           (event) => {
             try {
+              console.log('Processing affiliate event in home page:', event);
               links.push(parseAffiliateEvent(event));
             } catch (e) {
               console.error('Failed to parse affiliate event:', e);
@@ -55,6 +59,9 @@ export default function Home() {
       return links;
     }
   });
+
+  console.log('Current ads:', ads);
+  console.log('Current affiliate links:', affiliateLinks);
 
   return (
     <div className="container mx-auto py-8">

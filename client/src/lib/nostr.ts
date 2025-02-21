@@ -4,9 +4,10 @@ import { NOSTR_KINDS } from '@shared/nostr';
 import type { Ad, AffiliateLink } from '@shared/schema';
 
 const DEFAULT_RELAYS = [
-  'wss://relay.damus.io',
-  'wss://nos.lol',
-  'wss://relay.nostr.band'
+  'wss://relay.snort.social',
+  'wss://relay.current.fyi',
+  'wss://nostr.fmt.wiz.biz',
+  'wss://relay.damus.io'
 ];
 
 // Initialize pool with explicit relays

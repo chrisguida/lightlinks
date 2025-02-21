@@ -12,11 +12,17 @@ const DEFAULT_RELAYS = [
 // Initialize pool with explicit relays
 const pool = new SimplePool();
 
+// Log relay connection attempts
+console.log('Initializing Nostr pool with relays:', DEFAULT_RELAYS);
+
 export async function publishEvent(event: NostrEvent): Promise<string> {
   try {
+    console.log('Publishing event to relays:', event);
     const pub = await pool.publish(DEFAULT_RELAYS, event);
+    console.log('Event published successfully');
     return event.id;
   } catch (error) {
+    console.error('Failed to publish event:', error);
     throw new Error('Failed to publish event');
   }
 }
@@ -25,16 +31,29 @@ export function subscribeToEvents(
   filter: NostrFilter,
   onEvent: (event: NostrEvent) => void
 ): () => void {
+  console.log('Subscribing to events with filter:', filter);
+
   const sub = pool.sub(DEFAULT_RELAYS, [filter], {
-    onevent: onEvent
+    onevent: (event: NostrEvent) => {
+      console.log('Received event:', event);
+      onEvent(event);
+    },
+    oneose: () => {
+      console.log('EOSE received for subscription');
+    },
+    onerror: (err: Error) => {
+      console.error('Subscription error:', err);
+    }
   });
 
   return () => {
+    console.log('Unsubscribing from events');
     if (sub) sub.unsub();
   };
 }
 
 export function parseAdEvent(event: NostrEvent): Ad {
+  console.log('Parsing ad event:', event);
   const content = JSON.parse(event.content);
   return {
     id: event.id,
@@ -45,6 +64,7 @@ export function parseAdEvent(event: NostrEvent): Ad {
 }
 
 export function parseAffiliateEvent(event: NostrEvent): AffiliateLink {
+  console.log('Parsing affiliate event:', event);
   const adEventId = event.tags.find(t => t[0] === 'e')?.[1];
   if (!adEventId) throw new Error('Invalid affiliate event: missing ad reference');
 
